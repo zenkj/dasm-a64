@@ -26,9 +26,10 @@ virtual machine provided by [Foundation Model](http://www.arm.com/fvp) from ARM.
 The test environment is provided by [linaro](http://releases.linaro.org/latest/openembedded/aarch64/)
 
 The lamp image is used for the simulation environment(there's arm64 gcc and gdb in this image):
-    Foundation_v8pkg/models/Linux64_GCC-4.1/Foundation_v8 \\
-    --cores=4 \\
-    --no-secure-memory \\
+
+    Foundation_v8pkg/models/Linux64_GCC-4.1/Foundation_v8 \
+    --cores=4 \
+    --no-secure-memory \
     --visualization \
     --gicv3 \
     --data=fvp_bl1.bin@0x0 \
