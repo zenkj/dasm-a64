@@ -46,6 +46,7 @@ an ARM64 port from Peter Cawley's [tutorial of DynASM](http://corsix.github.io/d
   $ make test
 
 The result looks like this:
+
     root@genericarmv8:~/dasm-a64/test/bf# make
     normal bf interpreter running...
         AAAAAAAAAAAAAAAABBBBBBB....
