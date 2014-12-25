@@ -30,6 +30,7 @@ enum {
     /* The following actions also have an argument. */
     DASM_REL_PC, DASM_LABEL_PC,
     DASM_IMM,       /* NOT 64 bit */
+    DASM_IMMADDROFF,/* -256 ~ 65520, if (negative or unaligned) and in [-256,255], need reset bit 24 for unscaled address offset*/
     DASM_IMMNSR,    /**may be 64 bit */
     DASM_IMMLSB,    /* 0~31 or 0~63 */
     DASM_IMMWIDTH1, /* 1~32-lsb or 1~64-lsb */
@@ -420,6 +421,12 @@ void dasm_put(Dst_DECL, int start, ...) {
     #endif  
                 b[pos++] = ((n>>((ins>>10)&31)) & ((1<<((ins>>5)&31))-1)) << (ins&31);
                 break;
+            case DASM_IMMADDROFF:
+                if ((n>=-256 && n < 0) || (n <= 255 && (n & ((1<<((ins>>10)&31))-1)) != 0))
+                    b[pos++] = 1 | ((n & ((1<<9)-1)) << 12)
+                else
+                    b[pos++] = ((n>>((ins>>10)&31)) & ((1<<12)-1)) << 10;
+                break;
             case DASM_IMMNSR: {   /**may be 64 bit */
                 int ok;
                 unsigned int encode;
@@ -617,6 +624,7 @@ int dasm_link(Dst_DECL, size_t *szp)
         case DASM_REL_LG: case DASM_REL_PC: pos++; break;
         case DASM_LABEL_LG: case DASM_LABEL_PC: b[pos++] += ofs; break;
         case DASM_IMM:
+        case DASM_IMMADDROFF:
         case DASM_IMMNSR:    /**may be 64 bit */
         case DASM_IMMLSB:    /* 0~31 or 0~63 */
         case DASM_IMMWIDTH1: /* 1~32-lsb or 1~64-lsb */
@@ -710,6 +718,10 @@ int dasm_encode(Dst_DECL, void *buffer)
           ins &= 2047; if (ins >= 20) D->globals[ins-10] = (void *)(base + n);
           break;
         case DASM_LABEL_PC: break;
+        case DASM_IMMADDROFF:
+          if (n&1 == 1) cp[-1] &= 0xfeffffff;
+          cp[-1] |= (n & ~1);
+          break;
         case DASM_IMM:
         case DASM_IMMNSR:    /**may be 64 bit */
         case DASM_IMMLSB:    /* 0~31 or 0~63 */

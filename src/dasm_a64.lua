@@ -47,6 +47,7 @@ local action_names = {
     "STOP", "SECTION", "ESC", "REL_EXT",
     "ALIGN", "REL_LG", "LABEL_LG",
     "REL_PC", "LABEL_PC", "IMM",
+    "IMMADDROFF", -- Address offset immediate, can be pimm12[10:21] or simm9[12:20]
     "IMMNSR", -- Logical immediate, for N, imms and immr
     "IMMLSB", -- Immediate for bits lsb, immr = -lsb%32
     "IMMWIDTH1", -- Immediate for bits width, imms = width-1
@@ -356,7 +357,7 @@ local map_cond = {
 --    n=2: [<Xn|SP>], no scale
 --    n=3: [<Xn|SP>, #<imm7>]!, with scale
 --    n=4: [<Xn|SP>, #<simm9>]!, no scale
---    n=5: [<Xn|SP>{, #<pimm12>}], with scale
+--    n=5: [<Xn|SP>{, #<pimm12/simm9>}], pimm12 with scale, or simm9 if imm is negative or unaligned(in this case, bit24 need to be reset to 0)
 --    n=6: [<Xn|SP>, <R><m>{, <extend> {<amount>}}]
 --        n1: the amount when S = 1
 --        if n1 > 0, then amount = 0 when S=0
@@ -3937,6 +3938,7 @@ local function parse_caddress(param, bits, shift, scale, signed)
     if reg and tailr ~= "" then
         local sf, gpr, tp = parse_gpr(reg, 1)
         if tp then
+            scale = scale and scale or 0
             wactionl("IMM", (signed and 32768 or 0)+scale*1024+bits*32+shift, format(tp.ctypefmt, tailr))
             return gpr, 0
         end
@@ -3995,12 +3997,24 @@ local function parse_address5(param, scale)
     local base, imm
     base, imm = match(param, "^%[%s*(%w+)%s*,?%s*(%S*)%s*%]$")
     if not base then
-        return parse_caddress(param, 12, 10, scale, false)
+        local reg, tailr = match(param, "^([%w_:]+)%s*(.*)$")
+        if reg and tailr ~= "" then
+            local sf, gpr, tp = parse_gpr(reg, 1)
+            if tp then
+                wactionl("IMMADDROFF", scale*1024, format(tp.ctypefmt, tailr))
+                return gpr, 0
+            end
+        end
+        werror("invalid immediate operand")
     else
         local sf, gpr = parse_gpr(base, 1)
         scale = scale and scale or 0
-        imm = imm == "" and 0 or parse_imm(imm, 12, 10, scale, false)
-        return gpr, imm
+        if imm ~= "" then
+            imm = match(imm, "^#(.*)$")
+            if not imm then werror("expect immediate operand") end
+            wactionl("IMMADDROFF", scale*1024, imm)
+        end
+        return gpr, 0
     end
 end
 
